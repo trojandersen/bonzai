@@ -19,11 +19,20 @@ module.exports.handler = async (event) => {
           checkIn: booking.checkIn,
           checkOut: booking.checkOut,
           guests: booking.guests,
-          numOfSingleRooms: booking.numOfSingleRooms,
-          numOfDoubleRooms: booking.numOfDoubleRooms,
-          numOfSuiteRooms: booking.numOfSuiteRooms,
           name: booking.name
       }
+
+      // Conditionally add room types only if their value is greater than 0
+      if (booking.numOfSingleRooms > 0) {
+        formattedBooking.numOfSingleRooms = booking.numOfSingleRooms;
+      }
+      if (booking.numOfDoubleRooms > 0) {
+        formattedBooking.numOfDoubleRooms = booking.numOfDoubleRooms;
+      }
+      if (booking.numOfSuiteRooms > 0) {
+        formattedBooking.numOfSuiteRooms = booking.numOfSuiteRooms;
+      }
+
       formattedData.bookings.push(formattedBooking)
       })
       
