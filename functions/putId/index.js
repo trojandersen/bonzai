@@ -3,22 +3,36 @@ const { db } = require("../../services/db");
 
 exports.handler = async (event) => {
   const { id } = event.pathParameters;
-  const { guests, numOfRooms, roomType, checkIn, checkOut } = JSON.parse(event.body);
+  const {
+    guests,
+    numOfSingleRooms,
+    numOfDoubleRooms,
+    numOfSuiteRooms,
+    checkIn,
+    checkOut,
+  } = JSON.parse(event.body);
 
-  // Prepare the update expression and attribute values for the fields that are allowed to change
-  const params = {
-    TableName: "bonzaiBookings",
-    Key: { bookingId: id },
-    UpdateExpression: "set guests = :guests, numOfRooms = :numOfRooms, roomType = :roomType, checkIn = :checkIn, checkOut = :checkOut",
-    ExpressionAttributeValues: {
-      ":guests": guests,
-      ":numOfRooms": numOfRooms,
-      ":roomType": roomType,
-      ":checkIn": checkIn,
-      ":checkOut": checkOut,
-    },
-    ReturnValues: "UPDATED_NEW",
-  };
+  // Ensure the check-in date is today or later, and check-out is at least one night after check-in
+  const today = new Date().toISOString().split("T")[0];
+  if (checkIn < today || new Date(checkOut) <= new Date(checkIn)) {
+    return sendError(400, "Invalid check-in/check-out dates.");
+  }
+
+  // Calculate number of rooms and beds requested
+  const totalRoomsRequested =
+    numOfSingleRooms + numOfDoubleRooms + numOfSuiteRooms;
+  const totalBedsAvailable =
+    numOfSingleRooms * 1 + numOfDoubleRooms * 2 + numOfSuiteRooms * 2;
+
+  // Validate guest-to-room ratio: Ensure there's at least one guest per room
+  if (guests < totalRoomsRequested) {
+    return sendError(400, "Number of guests cannot be less than the number of rooms booked.");
+  }
+
+  // Validate bed-to-guest ratio: Ensure the total number of guests does not exceed the number of available beds
+  if (guests > totalBedsAvailable) {
+    return sendError(400, "Number of guests exceeds the available number of beds.");
+  }
 
   try {
     // Check if the booking exists
@@ -31,13 +45,100 @@ exports.handler = async (event) => {
       return sendError(404, "Booking not found.");
     }
 
-    // Update the allowed fields
+    // Query inventory to check for available rooms
+    const inventoryCheckParams = {
+      TableName: "bonzaiInventory", // Replace with actual table name
+      FilterExpression: "roomIsAvailable = :true",
+      ExpressionAttributeValues: {
+        ":true": true,
+      },
+    };
+    const inventory = await db.scan(inventoryCheckParams);
+    const availableRooms = inventory.Items;
+
+    // Count available rooms by type
+    const availableSingleRooms = availableRooms.filter(
+      (room) => room.roomType === "Single"
+    ).length;
+    const availableDoubleRooms = availableRooms.filter(
+      (room) => room.roomType === "Double"
+    ).length;
+    const availableSuiteRooms = availableRooms.filter(
+      (room) => room.roomType === "Suite"
+    ).length;
+
+    // Validate room availability
+    if (
+      numOfSingleRooms > availableSingleRooms ||
+      numOfDoubleRooms > availableDoubleRooms ||
+      numOfSuiteRooms > availableSuiteRooms
+    ) {
+      return sendError(400, "Requested room types are not available.");
+    }
+
+    // Calculate total price based on room types and number of nights
+    const singleRoomPrice = 500;
+    const doubleRoomPrice = 1000;
+    const suiteRoomPrice = 1500;
+    const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
+    const totalPrice =
+      nights *
+      (numOfSingleRooms * singleRoomPrice +
+        numOfDoubleRooms * doubleRoomPrice +
+        numOfSuiteRooms * suiteRoomPrice);
+
+    // Prepare the update expression and attribute values for the fields that are allowed to change
+    const params = {
+      TableName: "bonzaiBookings",
+      Key: { bookingId: id },
+      UpdateExpression:
+        "set guests = :guests, numOfSingleRooms = :numOfSingleRooms, numOfDoubleRooms = :numOfDoubleRooms, numOfSuiteRooms = :numOfSuiteRooms, checkIn = :checkIn, checkOut = :checkOut, totalPrice = :totalPrice",
+      ExpressionAttributeValues: {
+        ":guests": guests,
+        ":numOfSingleRooms": numOfSingleRooms,
+        ":numOfDoubleRooms": numOfDoubleRooms,
+        ":numOfSuiteRooms": numOfSuiteRooms,
+        ":checkIn": checkIn,
+        ":checkOut": checkOut,
+        ":totalPrice": totalPrice,
+      },
+      ReturnValues: "UPDATED_NEW",
+    };
+
+    // Update the booking
     const result = await db.update(params);
+
+    // Update room availability
+    const updateRoomAvailability = async (roomType, numOfRooms) => {
+      const roomsToUpdate = availableRooms
+        .filter((room) => room.roomType === roomType && room.roomIsAvailable)
+        .slice(0, numOfRooms);
+
+      for (const room of roomsToUpdate) {
+        const roomUpdateParams = {
+          TableName: "bonzaiInventory", // Replace with actual table name
+          Key: { roomId: room.roomId },
+          UpdateExpression: "set roomIsAvailable = :false",
+          ExpressionAttributeValues: {
+            ":false": false,
+          },
+        };
+        await db.update(roomUpdateParams);
+      }
+    };
+
+    await Promise.all([
+      updateRoomAvailability("Single", numOfSingleRooms),
+      updateRoomAvailability("Double", numOfDoubleRooms),
+      updateRoomAvailability("Suite", numOfSuiteRooms),
+    ]);
+
     return sendResponse({
       message: "Booking updated successfully.",
       updatedAttributes: result.Attributes,
     });
   } catch (error) {
+    console.error("Error updating booking:", error);
     return sendError(500, "Could not update booking.");
   }
 };
