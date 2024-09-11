@@ -18,13 +18,13 @@ exports.handler = async (event) => {
     return sendError(400, "Invalid check-in/check-out dates.");
   }
 
-  // Calculate number of rooms and beds requested
-  const totalRoomsRequested =
-    numOfSingleRooms + numOfDoubleRooms + numOfSuiteRooms;
+  // Calculate number of beds requested
   const totalBedsAvailable =
     numOfSingleRooms * 1 + numOfDoubleRooms * 2 + numOfSuiteRooms * 2;
 
   // Validate guest-to-room ratio: Ensure there's at least one guest per room
+  const totalRoomsRequested =
+    numOfSingleRooms + numOfDoubleRooms + numOfSuiteRooms;
   if (guests < totalRoomsRequested) {
     return sendError(400, "Number of guests cannot be less than the number of rooms booked.");
   }
