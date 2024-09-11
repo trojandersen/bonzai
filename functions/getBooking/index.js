@@ -19,7 +19,9 @@ module.exports.handler = async (event) => {
           checkIn: booking.checkIn,
           checkOut: booking.checkOut,
           guests: booking.guests,
-          numOfRooms: booking.roomId.split(', ').length,  // Count number of rooms
+          numOfSingleRooms: booking.numOfSingleRooms,
+          numOfDoubleRooms: booking.numOfDoubleRooms,
+          numOfSuiteRooms: booking.numOfSuiteRooms,
           name: booking.name
       }
       formattedData.bookings.push(formattedBooking)
