@@ -1,69 +1,217 @@
-<!--
-title: 'AWS Simple HTTP Endpoint example in NodeJS'
-description: 'This template demonstrates how to make a simple HTTP API with Node.js running on AWS Lambda and API Gateway using the Serverless Framework.'
-layout: Doc
-framework: v4
-platform: AWS
-language: nodeJS
-authorLink: 'https://github.com/serverless'
-authorName: 'Serverless, Inc.'
-authorAvatar: 'https://avatars1.githubusercontent.com/u/13742415?s=200&v=4'
--->
+# Bonzai - Gruppexam in "Development & deployment in a cloud environment"
 
-# Serverless Framework Node HTTP API on AWS
 
-This template demonstrates how to make a simple HTTP API with Node.js running on AWS Lambda and API Gateway using the Serverless Framework.
+## Description of assignment
 
-This template does not include any kind of persistence (database). For more advanced examples, check out the [serverless/examples repository](https://github.com/serverless/examples/) which includes Typescript, Mongo, DynamoDB and other examples.
+“Bonz.ai, the company behind the hotel, has always strived to be at the forefront when it comes to using technology to enhance the customer experience. They have a strong culture of innovation and are not afraid to think outside the box.
 
-## Usage
+You have been hired to build their booking API, and for this project, a serverless architecture in AWS was chosen. This means you don’t need to worry about managing or maintaining servers. Instead, you can focus on building and improving your application. Additionally, the serverless architecture allows Bonz.ai to scale up or down based on demand, which is perfect for their booking system that may experience varying traffic at different times of the day or year. ☁️
 
-### Deployment
+To store all booking information, DynamoDB was chosen, a NoSQL database offered by AWS. DynamoDB is an excellent choice for their booking API because it offers fast and predictable performance, as well as automatic scaling.”
 
-In order to deploy the example, you need to run the following command:
 
-```
-serverless deploy
-```
+## Technical requirements
+- **Serverless framework**
+- **API Gateway**
+- **AWS Lambda**
+- **DynamoDB**
 
-After running deploy, you should see output similar to:
 
-```
-Deploying "serverless-http-api" to stage "dev" (us-east-1)
+## Table of Contents
 
-✔ Service deployed to stack serverless-http-api-dev (91s)
+1. [API Endpoints](#api-endpoints)
+2. [Installation and Running the Project](#installation-and-running-the-project)
+3. [Error Handling](#error-handling)
+4. [Instructions](#instructions)
 
-endpoint: GET - https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/
+## API Endpoints
+
+### Endpoints
+
+| Method | Endpoint | Description | 
+| ------ | -------- | ----------- | 
+| GET    | /bookings | Overview of the bookings for receptionist | 
+| POST   | /bookings | Make a hotel reservation | 
+| PUT    | /bookings/:id | Make changes to a reservation | 
+| DELETE | /bookings/:id | Delete a reservation | 
+
+
+## Installation and Running the Project
+
+Follow these steps to create a local copy and run the project:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/trojandersen/bonzai.git
+
+2. Navigate to the project directory:
+   ```bash
+   cd bonzai
+
+3. Install dependencies:
+   ```bash
+   npm install
+
+4. Change the yml-file so that it connects to your AWS development service:
+   ```bash
+   org: *name-of-your-org*
+
+5. In order to deploy the project you need to open the terminal and enter the following command:
+   ```bash
+   sls deploy
+
+5. After deployment you should se similar:
+  ```
+  endpoints:
+  GET - https://xxxxxxxxxxxxx.execute-api.eu-north-1.amazonaws.com/bookings
+  POST - https://xxxxxxxxxxxxx.execute-api.eu-north-1.amazonaws.com/bookings
+  PUT - https://xxxxxxxxxxxxx.execute-api.eu-north-1.amazonaws.com/bookings/{id}
+  DELETE - https://xxxxxxxxxxxxx.execute-api.eu-north-1.amazonaws.com/bookings/{id}
 functions:
-  hello: serverless-http-api-dev-hello (1.6 kB)
-```
+  getBooking: bonzai-dev-getBooking (10 kB)
+  postBooking: bonzai-dev-postBooking (10 kB)
+  putId: bonzai-dev-putId (10 kB)
+  deleteId: bonzai-dev-deleteId (10 kB)
+  ```
 
-_Note_: In current form, after deployment, your API is public and can be invoked by anyone. For production deployments, you might want to configure an authorizer. For details on how to do that, refer to [HTTP API (API Gateway V2) event docs](https://www.serverless.com/framework/docs/providers/aws/events/http-api).
 
-### Invocation
+## Error handling
 
-After successful deployment, you can call the created application via HTTP:
+Common errors and their handling mechanisms are as follows:
 
-```
-curl https://xxxxxxx.execute-api.us-east-1.amazonaws.com/
-```
+- **400 Bad Request:** Invalid input format or missing parameters.
+- **401 Unauthorized:** Invalid or missing authentication token.
+- **403 Forbidden:** Insufficient privileges to access the resource.
+- **404 Not Found:** Requested resource does not exist.
+- **500 Internal Server Error:** General server error.
 
-Which should result in response similar to:
+## Instructions
+### As a receptionist you want to get an overview over the bookings:
+   ```http
+   GET /bookings
+   ```
+Response:
+   ```json
+   {
+	"data": {
+		"bookings": [
+			{
+				"bookingId": "64352643",
+				"checkIn": "2024-09-13",
+				"checkOut": "2024-09-17",
+				"guests": 1,
+				"name": "Paloma Wool",
+				"numOfSingleRooms": 1
+			},
+			{
+				"bookingId": "98745678",
+				"checkIn": "2024-09-13",
+				"checkOut": "2024-09-15",
+				"guests": 4,
+				"name": "Gwen Stefanie",
+				"numOfDoubleRooms": 2
+			}
+		]
+	}
+}
+   ```
 
-```json
-{ "message": "Go Serverless v4! Your function executed successfully!" }
-```
 
-### Local development
+### Making a reservation 
+   ```http
+   POST /bookings
+   ```
+  Request syntax:
+  ```json
+   {
+    “name”: “Jose Gonzalez”,
+    “email”: “jg@gmail.com”,
+    “guests”: 1,
+    “numOfSingleRooms”: 1,
+    “numOfDoubleRooms”: 0,
+    “numOfSuiteRooms”: 0,
+    “checkIn”: “2024-09-13”,
+    “checkOut”: “2024-09-16”
+  }
+   ```
 
-The easiest way to develop and test your function is to use the `dev` command:
+ Response:
+   ```json
+  {
+  “bookingId”: “876875”,
+  “name”: “Jose Gonzalez”,
+  “guests”: “1”,
+  “numOfSingleRooms”: 1,
+  “numOfDoubleRooms”: 0,
+  “numOfSuiteRooms”: 0,
+  “checkIn: “2024-09-13”,
+  “checkOut”: “2024-09-16”,
+  “total”: “1500”
+  }
+   ```
 
-```
-serverless dev
-```
+   **404 Not found** Error handling: 
+   ```
+   ÄNDRA
+   ```
 
-This will start a local emulator of AWS Lambda and tunnel your requests to and from AWS Lambda, allowing you to interact with your function as if it were running in the cloud.
+### Changings a reservation
+Instructions: Here you need the `bookingId`and use it in the parapath parameter:
+   ```http
+   PUT /bookings/:id
+   ```
+Request syntax:
+   ```json
+   {
+  “guests”: 1,
+  “numOfSingleRooms”: 1,
+  “numOfDoubleRooms”: 0,
+  “numOfSuiteRooms”: 0,
+  “checkIn”: “2024-09-13”, //date cannot be after check-in 
+  “checkOut”: “2024-09-19”
+  }
+   ```
 
-Now you can invoke the function as before, but this time the function will be executed locally. Now you can develop your function locally, invoke it, and see the results immediately without having to re-deploy.
+Response if reservation was successful:
+   ```json
+{
+	"data": {
+		"message": "Booking updated successfully.",
+		"updatedAttributes": {
+			"checkIn": "2024-09-13",
+			"numOfDoubleRooms": 0,
+			"totalPrice": 1000,
+			"guests": 1,
+			"checkOut": "2024-09-15",
+			"numOfSingleRooms": 1,
+			"rooms": [
+				"101"
+			],
+			"numOfSuiteRooms": 0
+		}
+	}
+}
+   ```
+**404 Not found** Error handling: if bookingId does not exists in bookings table:
+   ```
+   ÄNDRA
+   ```
 
-When you are done developing, don't forget to run `serverless deploy` to deploy the function to the cloud.
+### Delete reservation:
+Instructions: Here you need the `bookingId`and use it in the parapath parameter:
+   ```http
+   DELETE /bookings/:id
+   ```
+
+Response if something is in cart:
+   ```json
+   {
+  “message”: “Booking successfully deleted!
+  }
+   ```
+
+Error handling: **404 Not found**
+   ```
+   ÄNDRA
+   ```
+
