@@ -1,6 +1,6 @@
-function sendResponse(statusCode, data) {
+function sendResponse(data) {
   return {
-    statusCode: statusCode,
+    statusCode: 200,
     body: JSON.stringify({
       data,
     }),
@@ -10,7 +10,7 @@ function sendResponse(statusCode, data) {
 function sendError(statusCode, errorMessage) {
   return {
     statusCode: statusCode,
-    body: JSON.stringify({ error: errorMessage }),
+    body: JSON.stringify({ errorMessage }),
   };
 }
 
