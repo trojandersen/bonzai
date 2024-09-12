@@ -129,7 +129,13 @@ exports.handler = async (event) => {
     };
 
     // Save the booking in the database
-    await postBooking(booking);
+    // await postBooking(booking);
+    
+    // Save the booking in the database and get the bookingId
+    const bookingId = await postBooking(booking);
+
+    // Add bookingId to the booking object
+    booking.bookingId = bookingId;
 
     return sendResponse({
       message: "Booking successful",
