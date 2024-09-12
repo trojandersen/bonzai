@@ -14,11 +14,11 @@ async function getAvailableRoom(roomType) {
     },
   };
 
-  const result = await db.scan(params).promise();
+  const result = await db.scan(params);
   return result.Items.length > 0 ? result.Items[0] : null;
 }
 
-// here we update roomIsAvailable to false if the roomm is booked
+// here we update roomIsAvailable to false if the room is booked
 async function updateRoomAvailability(roomId) {
   const params = {
     TableName: "bonzaiInventory",
@@ -31,7 +31,7 @@ async function updateRoomAvailability(roomId) {
     },
   };
 
-  await db.update(params).promise();
+  await db.update(params);
   return roomId;
 }
 
@@ -70,7 +70,7 @@ async function postBooking(booking) {
       roomIds: booking.roomIds,
     },
   };
-  await db.put(params).promise();
+  await db.put(params);
   return bookingId;
 }
 
@@ -109,9 +109,9 @@ exports.handler = async (event) => {
     }
 
     // Assign rooms of each type
-    const singleRoomIds = await assignRooms("single", body.numofSingleRooms);
-    const doubleRoomIds = await assignRooms("double", body.numOfDoubleRooms);
-    const suiteRoomIds = await assignRooms("suite", body.numOfSuiteRooms);
+    const singleRoomIds = await assignRooms("Single", body.numofSingleRooms);
+    const doubleRoomIds = await assignRooms("Double", body.numOfDoubleRooms);
+    const suiteRoomIds = await assignRooms("Suite", body.numOfSuiteRooms);
 
     // Then we add them together into one array
     const roomIds = [...singleRoomIds, ...doubleRoomIds, ...suiteRoomIds];
@@ -131,7 +131,7 @@ exports.handler = async (event) => {
     // Save the booking in the database
     await postBooking(booking);
 
-    return sendResponse(201, {
+    return sendResponse({
       message: "Booking successful",
       bookingId: booking.bookingId,
       roomIds: booking.roomIds,
