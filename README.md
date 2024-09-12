@@ -121,32 +121,32 @@ Response:
    ```http
    POST /bookings
    ```
-  Request syntax:
+Request syntax:
   ```json
    {
-    “name”: “Jose Gonzalez”,
-    “email”: “jg@gmail.com”,
-    “guests”: 1,
-    “numOfSingleRooms”: 1,
-    “numOfDoubleRooms”: 0,
-    “numOfSuiteRooms”: 0,
-    “checkIn”: “2024-09-13”,
-    “checkOut”: “2024-09-16”
+    "name": "Jose Gonzalez",
+    "email": "jg@gmail.com",
+    "guests": 1,
+    "numOfSingleRooms": 1,
+    "numOfDoubleRooms": 0,
+    "numOfSuiteRooms": 0,
+    "checkIn": "2024-09-13",
+    "checkOut": "2024-09-16"
   }
    ```
 
- Response:
+Response:
    ```json
   {
-  “bookingId”: “876875”,
-  “name”: “Jose Gonzalez”,
-  “guests”: “1”,
-  “numOfSingleRooms”: 1,
-  “numOfDoubleRooms”: 0,
-  “numOfSuiteRooms”: 0,
-  “checkIn: “2024-09-13”,
-  “checkOut”: “2024-09-16”,
-  “total”: “1500”
+  "bookingId": 876875,
+  "name": "Jose Gonzalez",
+  "guests": 1,
+  "numOfSingleRooms": 1,
+  "numOfDoubleRooms": 0,
+  "numOfSuiteRooms": 0,
+  "checkIn": "2024-09-13",
+  "checkOut": "2024-09-16",
+  "totalPrice": 1500
   }
    ```
 
@@ -163,12 +163,12 @@ Instructions: Here you need the `bookingId`and use it in the parapath parameter:
 Request syntax:
    ```json
    {
-  “guests”: 1,
-  “numOfSingleRooms”: 1,
-  “numOfDoubleRooms”: 0,
-  “numOfSuiteRooms”: 0,
-  “checkIn”: “2024-09-13”, //date cannot be after check-in 
-  “checkOut”: “2024-09-19”
+  "guests": 1,
+  "numOfSingleRooms": 1,
+  "numOfDoubleRooms": 0,
+  "numOfSuiteRooms": 0,
+  "checkIn": "2024-09-13", //date cannot be after check-in 
+  "checkOut": "2024-09-19"
   }
    ```
 
@@ -206,7 +206,7 @@ Instructions: Here you need the `bookingId`and use it in the parapath parameter:
 Response if something is in cart:
    ```json
    {
-  “message”: “Booking successfully deleted!
+  "message": "Booking successfully deleted!"
   }
    ```
 
