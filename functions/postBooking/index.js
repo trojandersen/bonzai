@@ -109,9 +109,9 @@ exports.handler = async (event) => {
     }
 
     // Assign rooms of each type
-    const singleRoomIds = await assignRooms("single", body.numofSingleRooms);
-    const doubleRoomIds = await assignRooms("double", body.numOfDoubleRooms);
-    const suiteRoomIds = await assignRooms("suite", body.numOfSuiteRooms);
+    const singleRoomIds = await assignRooms("Single", body.numofSingleRooms);
+    const doubleRoomIds = await assignRooms("Double", body.numOfDoubleRooms);
+    const suiteRoomIds = await assignRooms("Suite", body.numOfSuiteRooms);
 
     // Then we add them together into one array
     const roomIds = [...singleRoomIds, ...doubleRoomIds, ...suiteRoomIds];
