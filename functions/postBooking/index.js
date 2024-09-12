@@ -30,6 +30,7 @@ async function allocateRooms(numOfSingleRooms, numOfDoubleRooms, numOfSuiteRooms
   const inventory = await db.scan(inventoryCheckParams);
   const availableRooms = inventory.Items;
 
+  // Allocate rooms based on type and availability
   const allocatedRooms = [
     ...availableRooms.filter((room) => room.roomType === "Single").slice(0, numOfSingleRooms).map((room) => room.roomId),
     ...availableRooms.filter((room) => room.roomType === "Double").slice(0, numOfDoubleRooms).map((room) => room.roomId),
@@ -41,6 +42,7 @@ async function allocateRooms(numOfSingleRooms, numOfDoubleRooms, numOfSuiteRooms
 
 // Utility function to update room inventory (free rooms and allocate rooms)
 async function updateRoomInventory(freeRooms, allocateRooms) {
+  // Set previously used rooms to available
   const freeUpPreviousRooms = freeRooms.map((roomId) => ({
     TableName: "bonzaiInventory",
     Key: { roomId },
@@ -48,6 +50,7 @@ async function updateRoomInventory(freeRooms, allocateRooms) {
     ExpressionAttributeValues: { ":true": true },
   }));
 
+  // Mark newly allocated rooms as unavailable
   const markRoomsAsUnavailable = allocateRooms.map((roomId) => ({
     TableName: "bonzaiInventory",
     Key: { roomId },
@@ -55,6 +58,7 @@ async function updateRoomInventory(freeRooms, allocateRooms) {
     ExpressionAttributeValues: { ":false": false },
   }));
 
+  // Run both room free-up and marking as unavailable in parallel
   await Promise.all([
     ...freeUpPreviousRooms.map((params) => db.update(params)),
     ...markRoomsAsUnavailable.map((params) => db.update(params)),
@@ -68,6 +72,7 @@ function calculateTotalPrice(singleRooms, doubleRooms, suiteRooms, checkIn, chec
   const suiteRoomPrice = 1500;
   const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
 
+  // Calculate total price based on room type and length of stay
   return nights * (
     singleRooms * singleRoomPrice +
     doubleRooms * doubleRoomPrice +
@@ -77,7 +82,7 @@ function calculateTotalPrice(singleRooms, doubleRooms, suiteRooms, checkIn, chec
 
 // Function to create a booking and save it to the database
 async function postBooking(booking) {
-  const bookingId = uuid4(); // Use uuid4() to generate a unique booking ID
+  const bookingId = uuid4();
   const params = {
     TableName: "bonzaiBookings",
     Item: {
@@ -98,7 +103,7 @@ exports.handler = async (event) => {
       !body.name ||
       !body.email ||
       body.guests < 1 ||
-      (body.numofSingleRooms < 1 &&
+      (body.numOfSingleRooms < 1 &&
         body.numOfDoubleRooms < 1 &&
         body.numOfSuiteRooms < 1) ||
       !isValidDate(body.checkIn) ||
@@ -109,25 +114,25 @@ exports.handler = async (event) => {
     }
 
     // Validate the number of rooms does not exceed the number of guests
-    const totalRoomsRequested = body.numofSingleRooms + body.numOfDoubleRooms + body.numOfSuiteRooms;
+    const totalRoomsRequested = body.numOfSingleRooms + body.numOfDoubleRooms + body.numOfSuiteRooms;
     if (totalRoomsRequested > body.guests) {
       return sendError(400, "Number of rooms cannot exceed number of guests.");
     }
 
     // Calculate total bed capacity based on room types
     const totalBedsAvailable = 
-      body.numofSingleRooms * 1 + 
+      body.numOfSingleRooms * 1 + 
       body.numOfDoubleRooms * 2 + 
       body.numOfSuiteRooms * 2;
 
     // Validate the number of beds is enough for the guests
     if (body.guests > totalBedsAvailable) {
-      return sendError(400, "Not enough beds for the number of guests.");
+      return sendError(400, "Number of guests exceeds the available number of beds.");
     }
 
     // Allocate rooms
     const allocatedRooms = await allocateRooms(
-      body.numofSingleRooms,
+      body.numOfSingleRooms,
       body.numOfDoubleRooms,
       body.numOfSuiteRooms
     );
@@ -142,7 +147,7 @@ exports.handler = async (event) => {
       name: body.name,
       email: body.email,
       guests: body.guests,
-      numofSingleRooms: body.numofSingleRooms,
+      numOfSingleRooms: body.numOfSingleRooms,
       numOfDoubleRooms: body.numOfDoubleRooms,
       numOfSuiteRooms: body.numOfSuiteRooms,
       checkIn: body.checkIn,
@@ -152,7 +157,7 @@ exports.handler = async (event) => {
 
     // Calculate the total price for the booking
     const totalPrice = calculateTotalPrice(
-      body.numofSingleRooms,
+      body.numOfSingleRooms,
       body.numOfDoubleRooms,
       body.numOfSuiteRooms,
       body.checkIn,
