@@ -9,26 +9,31 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Check if the booking exists
-    const getParams = {
+    const result = await db.get({
       TableName: 'bonzaiBookings',
       Key: { bookingId }
-    };
-
-    const result = await db.get(getParams);
+    });
 
     if (!result.Item) {
-      // Booking ID does not exist
       return sendError(404, { message: 'Booking not found' });
     }
 
-    // Booking exists, delete booking
+    const checkInDate = new Date(result.Item.checkIn);
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    const dayDifference = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
+
+    if (dayDifference <= 2) {
+      return sendError(400, { message: 'Booking can only be cancelled up to 2 days before check-in date' });
+    }
+
     await db.delete({
       TableName: 'bonzaiBookings',
       Key: { bookingId }
     });
 
-    return sendResponse(200, { message: 'Booking successfully deleted' });
+    return sendResponse({ message: 'Booking successfully deleted' });
 
   } catch (error) {
     console.error('Error deleting booking:', error);
