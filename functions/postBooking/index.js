@@ -32,6 +32,7 @@ async function updateRoomAvailability(roomId) {
   };
 
   await db.update(params).promise();
+  return roomId;
 }
 
 // this function checks uses the two functions above to check for a room and change the boolean value to false and returns the roomId
@@ -70,6 +71,7 @@ async function postBooking(booking) {
     },
   };
   await db.put(params).promise();
+  return bookingId;
 }
 
 // regex function for a date format
@@ -96,7 +98,7 @@ exports.handler = async (event) => {
     if (
       !body.name ||
       !body.email ||
-      body.guestNumber < 1 ||
+      body.guests < 1 ||
       (body.numofSingleRooms < 1 &&
         body.numOfDoubleRooms < 1 &&
         body.numOfSuiteRooms < 1) ||
@@ -117,7 +119,7 @@ exports.handler = async (event) => {
     const booking = {
       name: body.name,
       email: body.email,
-      guestNumber: body.guestNumber,
+      guests: body.guests,
       numofSingleRooms: body.numofSingleRooms,
       numOfDoubleRooms: body.numOfDoubleRooms,
       numOfSuiteRooms: body.numOfSuiteRooms,
