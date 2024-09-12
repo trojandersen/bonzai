@@ -128,9 +128,7 @@ exports.handler = async (event) => {
       roomIds: roomIds, // We add the roomIds array to the booking object
     };
 
-    // Save the booking in the database
-    // await postBooking(booking);
-    
+
     // Save the booking in the database and get the bookingId
     const bookingId = await postBooking(booking);
 
@@ -141,6 +139,10 @@ exports.handler = async (event) => {
       message: "Booking successful",
       bookingId: booking.bookingId,
       roomIds: booking.roomIds,
+      guests: booking.guests,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      name: booking.name,
     });
   } catch (error) {
     return sendError(500, error.message || "An unexpected error occured.");
