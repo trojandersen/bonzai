@@ -150,9 +150,26 @@ Response:
   }
    ```
 
-   **404 Not found** Error handling: 
+
+   ### Error handling
+
+   **400 Bad request** EToo many guests per room: 
+   ```json
+   {
+	"errorMessage": "Number of guests exceeds the available number of beds."
+   }
    ```
-   ÄNDRA
+   **400 Bad request** Missing fields: 
+   ```json
+   {
+	"errorMessage": "Missing required fields in the request body."
+   }
+   ```
+   **500 Bad request** Insufficient rooms:
+   ```json
+   {
+	"errorMessage": "Not enough available Suite rooms."
+   }
    ```
 
 ### Changings a reservation
@@ -191,10 +208,32 @@ Response if reservation was successful:
 		}
 	}
 }
+
+   **Error handling**
    ```
-**404 Not found** Error handling: if bookingId does not exists in bookings table:
+   **404 Not found** If bookingId does not exists in bookings table:
+   ```json
+   {
+	"errorMessage": "Booking not found."
+}
    ```
-   ÄNDRA
+   **400 Bad request** EToo many guests per room: 
+   ```json
+   {
+	"errorMessage": "Number of guests exceeds the available number of beds."
+   }
+   ```
+   **400 Bad request** Missing fields: 
+   ```json
+   {
+	"errorMessage": "Missing required fields in the request body."
+   }
+   ```
+   **500 Bad request** Insufficient rooms:
+   ```json
+   {
+	"errorMessage": "Not enough available Suite rooms."
+   }
    ```
 
 ### Delete reservation:
@@ -210,8 +249,23 @@ Response if something is in cart:
   }
    ```
 
-Error handling: **404 Not found**
+### Error handling
+
+**400 Bad request** If todays date is less than two days before check-in
+   ```json
+   {
+	"errorMessage": {
+		"message": "Booking can only be cancelled up to 2 days before check-in date"
+	}
+   }
    ```
-   ÄNDRA
+
+**404 Bad request** If bookingId is incorrect
+   ```json
+{
+	"errorMessage": {
+		"message": "Booking not found"
+	}
+}
    ```
 
