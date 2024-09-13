@@ -1,71 +1,9 @@
 const { sendResponse, sendError } = require("../../responses");
 const { db } = require("../../services/db");
 
-// Utility function to allocate rooms based on type
-async function allocateRooms(numOfSingleRooms, numOfDoubleRooms, numOfSuiteRooms, previousRooms = []) {
-  const inventoryCheckParams = {
-    TableName: "bonzaiInventory",
-    FilterExpression: "roomIsAvailable = :true OR roomId IN (:previousRooms)",
-    ExpressionAttributeValues: {
-      ":true": true,
-      ":previousRooms": previousRooms.length > 0 ? previousRooms : ["-"],
-    },
-  };
-  const inventory = await db.scan(inventoryCheckParams);
-  const availableRooms = inventory.Items;
-
-  // Allocate rooms based on type and availability
-  const allocatedRooms = [
-    ...availableRooms.filter((room) => room.roomType === "Single").slice(0, numOfSingleRooms).map((room) => room.roomId),
-    ...availableRooms.filter((room) => room.roomType === "Double").slice(0, numOfDoubleRooms).map((room) => room.roomId),
-    ...availableRooms.filter((room) => room.roomType === "Suite").slice(0, numOfSuiteRooms).map((room) => room.roomId),
-  ];
-
-  return allocatedRooms;
-}
-
-// Utility function to update room inventory (free and allocate rooms)
-async function updateRoomInventory(freeRooms, allocateRooms) {
-  // Set previously used rooms to available
-  const freeUpPreviousRooms = freeRooms.map((roomId) => ({
-    TableName: "bonzaiInventory",
-    Key: { roomId },
-    UpdateExpression: "set roomIsAvailable = :true",
-    ExpressionAttributeValues: { ":true": true },
-  }));
-
-  // Mark newly allocated rooms as unavailable
-  const markRoomsAsUnavailable = allocateRooms.map((roomId) => ({
-    TableName: "bonzaiInventory",
-    Key: { roomId },
-    UpdateExpression: "set roomIsAvailable = :false",
-    ExpressionAttributeValues: { ":false": false },
-  }));
-
-  // Run both room free-up and marking as unavailable in parallel
-  await Promise.all([
-    ...freeUpPreviousRooms.map((params) => db.update(params)),
-    ...markRoomsAsUnavailable.map((params) => db.update(params)),
-  ]);
-}
-
-// Utility function to calculate total price based on room types and nights
-function calculateTotalPrice(singleRooms, doubleRooms, suiteRooms, checkIn, checkOut) {
-  const singleRoomPrice = 500;
-  const doubleRoomPrice = 1000;
-  const suiteRoomPrice = 1500;
-  const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
-
-  // Calculate total price based on room type and length of stay
-  return nights * (
-    singleRooms * singleRoomPrice +
-    doubleRooms * doubleRoomPrice +
-    suiteRooms * suiteRoomPrice
-  );
-}
-
 // Main handler for updating booking information
 exports.handler = async (event) => {
+  // Extract the booking ID from the path parameters and request body details
   const { id } = event.pathParameters;
   const {
     guests,
@@ -76,32 +14,33 @@ exports.handler = async (event) => {
     checkOut,
   } = JSON.parse(event.body);
 
-  // Validate check-in and check-out dates
+  // Validate the check-in and check-out dates
   const today = new Date().toISOString().split("T")[0];
   if (checkIn < today || new Date(checkOut) <= new Date(checkIn)) {
     return sendError(400, "Invalid check-in/check-out dates.");
   }
 
-  // Calculate total bed capacity based on room types
+  // Calculate total available beds based on the number of rooms of each type
   const totalBedsAvailable =
     numOfSingleRooms * 1 + numOfDoubleRooms * 2 + numOfSuiteRooms * 2;
 
-  // Calculate total rooms requested and ensure guests >= rooms
+  // Ensure the number of guests is at least equal to the total number of rooms booked
   const totalRoomsRequested =
     numOfSingleRooms + numOfDoubleRooms + numOfSuiteRooms;
   if (guests < totalRoomsRequested) {
     return sendError(400, "Number of guests cannot be less than the number of rooms booked.");
   }
 
-  // Ensure the number of guests does not exceed bed capacity
+  // Ensure the number of guests does not exceed the total number of available beds
   if (guests > totalBedsAvailable) {
     return sendError(400, "Number of guests exceeds the available number of beds.");
   }
 
   try {
-    // Fetch existing booking by ID
+    // Fetch the existing booking by its ID
     const checkParams = {
       TableName: "bonzaiBookings",
+      ConsistentRead: true,
       Key: { bookingId: id },
     };
     const existingBooking = await db.get(checkParams);
@@ -109,32 +48,45 @@ exports.handler = async (event) => {
       return sendError(404, "Booking not found.");
     }
 
-    // Get previous room allocations
+    // Get the previously allocated rooms (if any)
     const previousRooms = existingBooking.Item.rooms || [];
 
-    // Allocate new rooms based on booking changes
-    const allocatedRooms = await allocateRooms(
-      numOfSingleRooms,
-      numOfDoubleRooms,
-      numOfSuiteRooms,
-      previousRooms
-    );
+    // Check the inventory for available rooms and include previously booked rooms to allow for potential reallocations
+    const inventoryCheckParams = {
+      TableName: "bonzaiInventory",
+      FilterExpression: "roomIsAvailable = :true OR roomId IN (:previousRooms)",
+      ExpressionAttributeValues: {
+        ":true": true,
+        ":previousRooms": previousRooms,
+      },
+    };
+    const inventory = await db.scan(inventoryCheckParams);
+    const availableRooms = inventory.Items;
 
-    // Ensure the number of allocated rooms matches the request
+    // Define room prices for each type
+    const singleRoomPrice = 500, doubleRoomPrice = 1000, suiteRoomPrice = 1500;
+
+    // Allocate rooms by filtering the available rooms based on the requested room types
+    const allocatedRooms = [
+      ...availableRooms.filter((room) => room.roomType === "Single").slice(0, numOfSingleRooms).map(room => room.roomId),
+      ...availableRooms.filter((room) => room.roomType === "Double").slice(0, numOfDoubleRooms).map(room => room.roomId),
+      ...availableRooms.filter((room) => room.roomType === "Suite").slice(0, numOfSuiteRooms).map(room => room.roomId)
+    ];
+
+    // Validate that the requested rooms are available
     if (allocatedRooms.length !== totalRoomsRequested) {
       return sendError(400, "Requested room types are not available.");
     }
 
-    // Calculate the total price for the updated booking
-    const totalPrice = calculateTotalPrice(
-      numOfSingleRooms,
-      numOfDoubleRooms,
-      numOfSuiteRooms,
-      checkIn,
-      checkOut
+    // Calculate the total price based on room types, number of nights, and room prices
+    const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
+    const totalPrice = nights * (
+      numOfSingleRooms * singleRoomPrice +
+      numOfDoubleRooms * doubleRoomPrice +
+      numOfSuiteRooms * suiteRoomPrice
     );
 
-    // Prepare update parameters for the booking
+    // Prepare the update parameters for the booking, including the newly allocated rooms
     const params = {
       TableName: "bonzaiBookings",
       Key: { bookingId: id },
@@ -156,18 +108,37 @@ exports.handler = async (event) => {
     // Update the booking in the database
     const result = await db.update(params);
 
-    // Update room inventory (free previous rooms and mark new ones unavailable)
-    await updateRoomInventory(
-      previousRooms.filter(roomId => !allocatedRooms.includes(roomId)),
-      allocatedRooms
-    );
+    // Free up any previously booked rooms that are no longer needed
+    const freeUpPreviousRooms = previousRooms
+      .filter((roomId) => !allocatedRooms.includes(roomId))
+      .map((roomId) => ({
+        TableName: "bonzaiInventory",
+        Key: { roomId },
+        UpdateExpression: "set roomIsAvailable = :true",
+        ExpressionAttributeValues: { ":true": true },
+      }));
 
-    // Send success response with updated attributes
+    // Mark the newly allocated rooms as unavailable in the inventory
+    const updateRoomAvailability = allocatedRooms.map((roomId) => ({
+      TableName: "bonzaiInventory",
+      Key: { roomId },
+      UpdateExpression: "set roomIsAvailable = :false",
+      ExpressionAttributeValues: { ":false": false },
+    }));
+
+    // Perform all inventory updates (freeing up and marking rooms as unavailable) in parallel
+    await Promise.all([
+      ...freeUpPreviousRooms.map((params) => db.update(params)),
+      ...updateRoomAvailability.map((params) => db.update(params)),
+    ]);
+
+    // Respond with success and the updated booking details
     return sendResponse({
       message: "Booking updated successfully.",
       updatedAttributes: result.Attributes,
     });
   } catch (error) {
+    // Log any errors and return a 500 response
     console.error("Error updating booking:", error);
     return sendError(500, "Could not update booking.");
   }
