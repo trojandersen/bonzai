@@ -60,18 +60,31 @@ exports.handler = async (event) => {
     const previousRooms = existingBooking.Item.rooms || [];
 
     // Separate previously booked rooms by type
-    const previousSingleRooms = previousRooms.filter(roomId => roomId.startsWith('Single'));
-    const previousDoubleRooms = previousRooms.filter(roomId => roomId.startsWith('Double'));
-    const previousSuiteRooms = previousRooms.filter(roomId => roomId.startsWith('Suite'));
+    const previousSingleRooms = previousRooms.filter((roomId) =>
+      roomId.startsWith("Single")
+    );
+    const previousDoubleRooms = previousRooms.filter((roomId) =>
+      roomId.startsWith("Double")
+    );
+    const previousSuiteRooms = previousRooms.filter((roomId) =>
+      roomId.startsWith("Suite")
+    );
 
+    // We prepare dynamic values for inventoryCheckParams so it can reuse previously booked rooms
+    let expressionAttributeValues = { ":true": true };
+    let filterExpression = "roomIsAvailable = :true";
+    if (previousRooms.length > 0) {
+      previousRooms.forEach((roomId, index) => {
+        const roomKey = `:previousRoom${index}`;
+        expressionAttributeValues[roomKey] = roomId;
+        filterExpression += ` OR roomId = ${roomKey}`;
+      });
+    }
     // Check for available rooms, including previously booked rooms
     const inventoryCheckParams = {
       TableName: "bonzaiInventory",
-      FilterExpression: "roomIsAvailable = :true OR roomId IN (:previousRooms)",
-      ExpressionAttributeValues: {
-        ":true": true,
-        ":previousRooms": previousRooms,
-      },
+      FilterExpression: filterExpression,
+      ExpressionAttributeValues: expressionAttributeValues,
     };
     const inventory = await db.scan(inventoryCheckParams);
     const availableRooms = inventory.Items;
@@ -79,26 +92,35 @@ exports.handler = async (event) => {
     // Allocate Single rooms
     const singleRoomsNeeded = numOfSingleRooms - previousSingleRooms.length;
     const availableSingleRooms = availableRooms
-      .filter(room => room.roomType === "Single")
+      .filter((room) => room.roomType === "Single")
       .slice(0, Math.max(singleRoomsNeeded, 0))
-      .map(room => room.roomId);
-    const allocatedSingleRooms = [...previousSingleRooms.slice(0, numOfSingleRooms), ...availableSingleRooms];
+      .map((room) => room.roomId);
+    const allocatedSingleRooms = [
+      ...previousSingleRooms.slice(0, numOfSingleRooms),
+      ...availableSingleRooms,
+    ];
 
     // Allocate Double rooms
     const doubleRoomsNeeded = numOfDoubleRooms - previousDoubleRooms.length;
     const availableDoubleRooms = availableRooms
-      .filter(room => room.roomType === "Double")
+      .filter((room) => room.roomType === "Double")
       .slice(0, Math.max(doubleRoomsNeeded, 0))
-      .map(room => room.roomId);
-    const allocatedDoubleRooms = [...previousDoubleRooms.slice(0, numOfDoubleRooms), ...availableDoubleRooms];
+      .map((room) => room.roomId);
+    const allocatedDoubleRooms = [
+      ...previousDoubleRooms.slice(0, numOfDoubleRooms),
+      ...availableDoubleRooms,
+    ];
 
     // Allocate Suite rooms
     const suiteRoomsNeeded = numOfSuiteRooms - previousSuiteRooms.length;
     const availableSuiteRooms = availableRooms
-      .filter(room => room.roomType === "Suite")
+      .filter((room) => room.roomType === "Suite")
       .slice(0, Math.max(suiteRoomsNeeded, 0))
-      .map(room => room.roomId);
-    const allocatedSuiteRooms = [...previousSuiteRooms.slice(0, numOfSuiteRooms), ...availableSuiteRooms];
+      .map((room) => room.roomId);
+    const allocatedSuiteRooms = [
+      ...previousSuiteRooms.slice(0, numOfSuiteRooms),
+      ...availableSuiteRooms,
+    ];
 
     const allocatedRooms = [
       ...allocatedSingleRooms,
@@ -132,7 +154,8 @@ exports.handler = async (event) => {
     const singleRoomPrice = 500,
       doubleRoomPrice = 1000,
       suiteRoomPrice = 1500;
-    const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
+    const nights =
+      (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
     const totalPrice =
       nights *
       (numOfSingleRooms * singleRoomPrice +
@@ -163,8 +186,8 @@ exports.handler = async (event) => {
 
     // Free up previously booked rooms that are no longer needed
     const freeUpPreviousRooms = previousRooms
-      .filter(roomId => !allocatedRooms.includes(roomId))  // If room is no longer allocated, free it
-      .map(roomId => ({
+      .filter((roomId) => !allocatedRooms.includes(roomId)) // If room is no longer allocated, free it
+      .map((roomId) => ({
         TableName: "bonzaiInventory",
         Key: { roomId },
         UpdateExpression: "set roomIsAvailable = :true",
@@ -173,8 +196,8 @@ exports.handler = async (event) => {
 
     // Mark newly allocated rooms as unavailable (except for previously allocated ones)
     const updateRoomAvailability = allocatedRooms
-      .filter(roomId => !previousRooms.includes(roomId))  // Only mark newly booked rooms as unavailable
-      .map(roomId => ({
+      .filter((roomId) => !previousRooms.includes(roomId)) // Only mark newly booked rooms as unavailable
+      .map((roomId) => ({
         TableName: "bonzaiInventory",
         Key: { roomId },
         UpdateExpression: "set roomIsAvailable = :false",
