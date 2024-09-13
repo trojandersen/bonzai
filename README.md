@@ -1,4 +1,4 @@
-# Bonzai - Gruppexam in "Development & deployment in a cloud environment"
+# Bonzai - Group examination in "Development & deployment in a cloud environment"
 
 
 ## Description of assignment
@@ -80,8 +80,6 @@ functions:
 Common errors and their handling mechanisms are as follows:
 
 - **400 Bad Request:** Invalid input format or missing parameters.
-- **401 Unauthorized:** Invalid or missing authentication token.
-- **403 Forbidden:** Insufficient privileges to access the resource.
 - **404 Not Found:** Requested resource does not exist.
 - **500 Internal Server Error:** General server error.
 
@@ -153,19 +151,19 @@ Response:
 
    ### Error handling
 
-   **400 Bad request** EToo many guests per room: 
+   **400 Bad request** - Too many guests per room: 
    ```json
    {
 	"errorMessage": "Number of guests exceeds the available number of beds."
    }
    ```
-   **400 Bad request** Missing fields: 
+   **400 Bad request** - Missing fields: 
    ```json
    {
 	"errorMessage": "Missing required fields in the request body."
    }
    ```
-   **500 Bad request** Insufficient rooms:
+   **500 Bad request** - Insufficient rooms:
    ```json
    {
 	"errorMessage": "Not enough available Suite rooms."
@@ -189,7 +187,7 @@ Request syntax:
   }
    ```
 
-Response if reservation was successful:
+Response if changes were successful:
    ```json
 {
 	"data": {
@@ -209,27 +207,27 @@ Response if reservation was successful:
 	}
 }
 
-   **Error handling**
+### Error handling
    ```
-   **404 Not found** If bookingId does not exists in bookings table:
+   **404 Not found** - If bookingId does not exists in bookings table:
    ```json
    {
 	"errorMessage": "Booking not found."
 }
    ```
-   **400 Bad request** EToo many guests per room: 
+   **400 Bad request** - Too many guests per room: 
    ```json
    {
 	"errorMessage": "Number of guests exceeds the available number of beds."
    }
    ```
-   **400 Bad request** Missing fields: 
+   **400 Bad request** - Missing fields: 
    ```json
    {
 	"errorMessage": "Missing required fields in the request body."
    }
    ```
-   **500 Bad request** Insufficient rooms:
+   **500 Bad request** - Insufficient rooms:
    ```json
    {
 	"errorMessage": "Not enough available Suite rooms."
@@ -251,7 +249,7 @@ Response if something is in cart:
 
 ### Error handling
 
-**400 Bad request** If todays date is less than two days before check-in
+**400 Bad request** - If todays date is less than two days before check-in
    ```json
    {
 	"errorMessage": {
@@ -260,7 +258,7 @@ Response if something is in cart:
    }
    ```
 
-**404 Bad request** If bookingId is incorrect
+**404 Bad request** - If bookingId is incorrect
    ```json
 {
 	"errorMessage": {
