@@ -89,7 +89,7 @@ exports.handler = async (event) => {
 
     // Calculate total available beds based on room types
     const totalBedsAvailable =
-      body.numOfSingleRooms * 1 + body.numOfDoubleRooms * 2 + body.numOfSuiteRooms * 2;
+      body.numOfSingleRooms * 1 + body.numOfDoubleRooms * 2 + body.numOfSuiteRooms * 3;
 
     // Ensure the number of guests does not exceed the total number of available beds
     if (body.guests > totalBedsAvailable) {
