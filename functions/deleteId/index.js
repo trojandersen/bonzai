@@ -9,6 +9,7 @@ exports.handler = async (event) => {
   }
 
   try {
+    // Fetch the booking to get roomIds
     const result = await db.get({
       TableName: 'bonzaiBookings',
       ConsistentRead: true,
@@ -29,6 +30,23 @@ exports.handler = async (event) => {
       return sendError(400, { message: 'Booking can only be cancelled up to 2 days before check-in date' });
     }
 
+    // Step 1: Set all roomIds in the booking to available
+    const roomIds = result.Item.roomIds || [];
+    if (roomIds.length > 0) {
+      const freeRoomsPromises = roomIds.map((roomId) => {
+        return db.update({
+          TableName: 'bonzaiInventory',
+          Key: { roomId },
+          UpdateExpression: 'set roomIsAvailable = :true',
+          ExpressionAttributeValues: { ':true': true }
+        });
+      });
+
+      // Wait for all rooms to be marked as available
+      await Promise.all(freeRoomsPromises);
+    }
+
+    // Step 2: Delete the booking
     await db.delete({
       TableName: 'bonzaiBookings',
       Key: { bookingId }
