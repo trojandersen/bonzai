@@ -206,9 +206,9 @@ Response if changes were successful:
 		}
 	}
 }
-
+```
 ### Error handling
-   ```
+
    **404 Not found** - If bookingId does not exists in bookings table:
    ```json
    {
