@@ -24,7 +24,7 @@ exports.handler = async (event) => {
 
   // Calculate total beds available
   const totalBedsAvailable =
-    numOfSingleRooms * 1 + numOfDoubleRooms * 2 + numOfSuiteRooms * 2;
+    numOfSingleRooms * 1 + numOfDoubleRooms * 2 + numOfSuiteRooms * 3;
 
   const totalRoomsRequested =
     numOfSingleRooms + numOfDoubleRooms + numOfSuiteRooms;
