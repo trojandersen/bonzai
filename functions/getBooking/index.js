@@ -2,15 +2,18 @@ const { sendResponse, sendError } = require("../../responses/index");
 const { db } = require("../../services/db");
 
 
-const formattedData = {
-  bookings: []
-};
+
 
 module.exports.handler = async (event) => {
+  
+  const formattedData = {
+    bookings: []
+  };
 
   try {
       const data = await db.scan({
-          TableName: 'bonzaiBookings'
+          TableName: 'bonzaiBookings',
+          ConsistentRead: true  // Ensuring strongly consistent reads
       })
 
       data.Items.forEach(booking => {
@@ -23,15 +26,15 @@ module.exports.handler = async (event) => {
       }
 
       // Conditionally add room types only if their value is greater than 0
-      if (booking.numofSingleRooms > 0) {
-        formattedBooking.numOfSingleRooms = booking.numofSingleRooms;
-      }
-      if (booking.numOfDoubleRooms > 0) {
-        formattedBooking.numOfDoubleRooms = booking.numOfDoubleRooms;
-      }
-      if (booking.numOfSuiteRooms > 0) {
-        formattedBooking.numOfSuiteRooms = booking.numOfSuiteRooms;
-      }
+    if (booking.numOfSingleRooms > 0) {
+      formattedBooking.numOfSingleRooms = booking.numOfSingleRooms;
+    }
+    if (booking.numOfDoubleRooms > 0) {
+      formattedBooking.numOfDoubleRooms = booking.numOfDoubleRooms;
+    }
+    if (booking.numOfSuiteRooms > 0) {
+      formattedBooking.numOfSuiteRooms = booking.numOfSuiteRooms;
+    }
 
 
       formattedData.bookings.push(formattedBooking)

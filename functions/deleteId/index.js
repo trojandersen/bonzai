@@ -11,6 +11,7 @@ exports.handler = async (event) => {
   try {
     const result = await db.get({
       TableName: 'bonzaiBookings',
+      ConsistentRead: true,
       Key: { bookingId }
     });
 

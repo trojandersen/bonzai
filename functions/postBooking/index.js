@@ -2,103 +2,78 @@ const { sendResponse, sendError } = require("../../responses/index");
 const { db } = require("../../services/db");
 const { v4: uuid4 } = require("uuid");
 
-// Function to validate if a date is in the correct YYYY-MM-DD format
-function isValidDate(dateString) {
-  const regex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!regex.test(dateString)) {
-    return false;
-  }
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
-}
-
-// Utility function to allocate rooms based on type
-async function allocateRooms(numOfSingleRooms, numOfDoubleRooms, numOfSuiteRooms, previousRooms = []) {
-  const inventoryCheckParams = {
+// Function that queries the inventory table for roomType and availability
+async function getAvailableRooms(roomType) {
+  const params = {
     TableName: "bonzaiInventory",
-    FilterExpression: "roomIsAvailable = :true OR roomId IN (:previousRooms)",
+    ConsistentRead: true,
+    FilterExpression:
+      "roomType = :roomType AND roomIsAvailable = :roomIsAvailable",
     ExpressionAttributeValues: {
-      ":true": true,
-      ":previousRooms": previousRooms.length > 0 ? previousRooms : ["-"],
+      ":roomType": roomType,
+      ":roomIsAvailable": true,
     },
   };
-  const inventory = await db.scan(inventoryCheckParams);
-  const availableRooms = inventory.Items;
 
-  // Allocate rooms based on type and availability
-  const allocatedRooms = [
-    ...availableRooms.filter((room) => room.roomType === "Single").slice(0, numOfSingleRooms).map((room) => room.roomId),
-    ...availableRooms.filter((room) => room.roomType === "Double").slice(0, numOfDoubleRooms).map((room) => room.roomId),
-    ...availableRooms.filter((room) => room.roomType === "Suite").slice(0, numOfSuiteRooms).map((room) => room.roomId),
-  ];
-
-  return allocatedRooms;
+  const result = await db.scan(params);
+  return result.Items;
 }
 
-// Utility function to update room inventory (free rooms and allocate rooms)
-async function updateRoomInventory(freeRooms, allocateRooms) {
-  // Set previously used rooms to available
-  const freeUpPreviousRooms = freeRooms.map((roomId) => ({
+// Function that updates room availability to false
+async function updateRoomAvailability(roomId) {
+  const params = {
     TableName: "bonzaiInventory",
     Key: { roomId },
-    UpdateExpression: "set roomIsAvailable = :true",
-    ExpressionAttributeValues: { ":true": true },
-  }));
-
-  // Mark newly allocated rooms as unavailable
-  const markRoomsAsUnavailable = allocateRooms.map((roomId) => ({
-    TableName: "bonzaiInventory",
-    Key: { roomId },
-    UpdateExpression: "set roomIsAvailable = :false",
-    ExpressionAttributeValues: { ":false": false },
-  }));
-
-  // Run both room free-up and marking as unavailable in parallel
-  await Promise.all([
-    ...freeUpPreviousRooms.map((params) => db.update(params)),
-    ...markRoomsAsUnavailable.map((params) => db.update(params)),
-  ]);
+    UpdateExpression: "set roomIsAvailable = :roomIsAvailable",
+    ExpressionAttributeValues: { ":roomIsAvailable": false },
+  };
+  await db.update(params);
 }
 
-// Utility function to calculate total price based on room types and nights
-function calculateTotalPrice(singleRooms, doubleRooms, suiteRooms, checkIn, checkOut) {
+// Function to assign rooms based on room type and availability
+async function assignRooms(roomType, numOfRooms) {
+  const availableRooms = await getAvailableRooms(roomType);
+
+  if (availableRooms.length < numOfRooms) {
+    throw new Error(`Not enough available ${roomType} rooms.`);
+  }
+
+  const assignedRooms = availableRooms.slice(0, numOfRooms).map(room => room.roomId);
+  
+  // Mark the assigned rooms as unavailable
+  await Promise.all(
+    assignedRooms.map(roomId => updateRoomAvailability(roomId))
+  );
+
+  return assignedRooms;
+}
+
+// Function to calculate total number of nights between check-in and check-out
+function calculateNights(checkIn, checkOut) {
+  const checkInDate = new Date(checkIn);
+  const checkOutDate = new Date(checkOut);
+  const timeDiff = checkOutDate - checkInDate;
+  return Math.ceil(timeDiff / (1000 * 3600 * 24));
+}
+
+// Function to calculate the total price based on room types and nights
+function calculateTotalPrice(numOfSingleRooms, numOfDoubleRooms, numOfSuiteRooms, nights) {
   const singleRoomPrice = 500;
   const doubleRoomPrice = 1000;
   const suiteRoomPrice = 1500;
-  const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 3600 * 24);
 
-  // Calculate total price based on room type and length of stay
-  return nights * (
-    singleRooms * singleRoomPrice +
-    doubleRooms * doubleRoomPrice +
-    suiteRooms * suiteRoomPrice
-  );
-}
-
-// Function to create a booking and save it to the database
-async function postBooking(booking) {
-  const bookingId = uuid4();
-  const params = {
-    TableName: "bonzaiBookings",
-    Item: {
-      bookingId: bookingId,
-      ...booking,
-    },
-  };
-  await db.put(params);
-  return bookingId;
+  return (
+    numOfSingleRooms * singleRoomPrice +
+    numOfDoubleRooms * doubleRoomPrice +
+    numOfSuiteRooms * suiteRoomPrice
+  ) * nights;
 }
 
 exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
 
-    // Validate request parameters
+    // Validating the body
     if (
       !body.name ||
       !body.email ||
@@ -107,43 +82,49 @@ exports.handler = async (event) => {
         body.numOfDoubleRooms < 1 &&
         body.numOfSuiteRooms < 1) ||
       !isValidDate(body.checkIn) ||
-      !isValidDate(body.checkOut) ||
-      new Date(body.checkIn) >= new Date(body.checkOut)
+      !isValidDate(body.checkOut)
     ) {
-      return sendError(400, "Invalid request parameters.");
+      return sendError(400, "Missing required fields in the request body.");
     }
 
-    // Validate the number of rooms does not exceed the number of guests
-    const totalRoomsRequested = body.numOfSingleRooms + body.numOfDoubleRooms + body.numOfSuiteRooms;
-    if (totalRoomsRequested > body.guests) {
-      return sendError(400, "Number of rooms cannot exceed number of guests.");
-    }
+    // Calculate total available beds based on room types
+    const totalBedsAvailable =
+      body.numOfSingleRooms * 1 + body.numOfDoubleRooms * 2 + body.numOfSuiteRooms * 2;
 
-    // Calculate total bed capacity based on room types
-    const totalBedsAvailable = 
-      body.numOfSingleRooms * 1 + 
-      body.numOfDoubleRooms * 2 + 
-      body.numOfSuiteRooms * 2;
-
-    // Validate the number of beds is enough for the guests
+    // Ensure the number of guests does not exceed the total number of available beds
     if (body.guests > totalBedsAvailable) {
       return sendError(400, "Number of guests exceeds the available number of beds.");
     }
 
-    // Allocate rooms
-    const allocatedRooms = await allocateRooms(
-      body.numOfSingleRooms,
-      body.numOfDoubleRooms,
-      body.numOfSuiteRooms
-    );
-
-    // Ensure all requested rooms are available
-    if (allocatedRooms.length !== totalRoomsRequested) {
-      return sendError(400, "Requested room types are not available.");
+    // Ensure the number of guests is at least equal to the total number of rooms booked
+    const totalRoomsRequested =
+      body.numOfSingleRooms + body.numOfDoubleRooms + body.numOfSuiteRooms;
+    if (body.guests < totalRoomsRequested) {
+      return sendError(400, "Number of guests cannot be less than the number of rooms booked.");
     }
 
-    // Create the booking object
+    // Calculate the number of nights
+    const nights = calculateNights(body.checkIn, body.checkOut);
+
+    // Calculate total price based on room types and number of nights
+    const totalPrice = calculateTotalPrice(
+      body.numOfSingleRooms,
+      body.numOfDoubleRooms,
+      body.numOfSuiteRooms,
+      nights
+    );
+
+    // Assign rooms of each type
+    const singleRoomIds = await assignRooms("Single", body.numOfSingleRooms);
+    const doubleRoomIds = await assignRooms("Double", body.numOfDoubleRooms);
+    const suiteRoomIds = await assignRooms("Suite", body.numOfSuiteRooms);
+
+    // Combine room IDs into one array
+    const roomIds = [...singleRoomIds, ...doubleRoomIds, ...suiteRoomIds];
+
+    // Create booking object
     const booking = {
+      bookingId: uuid4(),
       name: body.name,
       email: body.email,
       guests: body.guests,
@@ -152,33 +133,41 @@ exports.handler = async (event) => {
       numOfSuiteRooms: body.numOfSuiteRooms,
       checkIn: body.checkIn,
       checkOut: body.checkOut,
-      roomIds: allocatedRooms,
+      roomIds: roomIds,
+      totalPrice: totalPrice, // Add totalPrice to the booking object
     };
 
-    // Calculate the total price for the booking
-    const totalPrice = calculateTotalPrice(
-      body.numOfSingleRooms,
-      body.numOfDoubleRooms,
-      body.numOfSuiteRooms,
-      body.checkIn,
-      body.checkOut
-    );
-    booking.totalPrice = totalPrice;
+    // Save booking in the database
+    const params = {
+      TableName: "bonzaiBookings",
+      Item: booking,
+    };
+    await db.put(params);
 
-    // Save the booking in the database and get the bookingId
-    const bookingId = await postBooking(booking);
-    booking.bookingId = bookingId;
-
-    // Update room availability in the inventory
-    await updateRoomInventory([], allocatedRooms);
-
-    // Send a success response
+    // Return successful response with booking details
     return sendResponse({
       message: "Booking successful",
       bookingId: booking.bookingId,
       roomIds: booking.roomIds,
+      totalPrice: booking.totalPrice, // Return totalPrice in the response
     });
   } catch (error) {
     return sendError(500, error.message || "An unexpected error occurred.");
   }
 };
+
+// regex function for a date format
+function isValidDate(dateString) {
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(dateString)) {
+    return false;
+  }
+  // Parse the date parts and validate the date
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
