@@ -1,4 +1,4 @@
-# Bonzai - Gruppexam in "Development & deployment in a cloud environment"
+# Bonzai - Group examination in "Development & deployment in a cloud environment"
 
 
 ## Description of assignment
@@ -80,8 +80,6 @@ functions:
 Common errors and their handling mechanisms are as follows:
 
 - **400 Bad Request:** Invalid input format or missing parameters.
-- **401 Unauthorized:** Invalid or missing authentication token.
-- **403 Forbidden:** Insufficient privileges to access the resource.
 - **404 Not Found:** Requested resource does not exist.
 - **500 Internal Server Error:** General server error.
 
@@ -121,38 +119,55 @@ Response:
    ```http
    POST /bookings
    ```
-  Request syntax:
+Request syntax:
   ```json
    {
-    “name”: “Jose Gonzalez”,
-    “email”: “jg@gmail.com”,
-    “guests”: 1,
-    “numOfSingleRooms”: 1,
-    “numOfDoubleRooms”: 0,
-    “numOfSuiteRooms”: 0,
-    “checkIn”: “2024-09-13”,
-    “checkOut”: “2024-09-16”
+    "name": "Jose Gonzalez",
+    "email": "jg@gmail.com",
+    "guests": 1,
+    "numOfSingleRooms": 1,
+    "numOfDoubleRooms": 0,
+    "numOfSuiteRooms": 0,
+    "checkIn": "2024-09-13",
+    "checkOut": "2024-09-16"
   }
    ```
 
- Response:
+Response:
    ```json
   {
-  “bookingId”: “876875”,
-  “name”: “Jose Gonzalez”,
-  “guests”: “1”,
-  “numOfSingleRooms”: 1,
-  “numOfDoubleRooms”: 0,
-  “numOfSuiteRooms”: 0,
-  “checkIn: “2024-09-13”,
-  “checkOut”: “2024-09-16”,
-  “total”: “1500”
+  "bookingId": 876875,
+  "name": "Jose Gonzalez",
+  "guests": 1,
+  "numOfSingleRooms": 1,
+  "numOfDoubleRooms": 0,
+  "numOfSuiteRooms": 0,
+  "checkIn": "2024-09-13",
+  "checkOut": "2024-09-16",
+  "totalPrice": 1500
   }
    ```
 
-   **404 Not found** Error handling: 
+
+   ### Error handling
+
+   **400 Bad request** - Too many guests per room: 
+   ```json
+   {
+	"errorMessage": "Number of guests exceeds the available number of beds."
+   }
    ```
-   ÄNDRA
+   **400 Bad request** - Missing fields: 
+   ```json
+   {
+	"errorMessage": "Missing required fields in the request body."
+   }
+   ```
+   **500 Bad request** - Insufficient rooms:
+   ```json
+   {
+	"errorMessage": "Not enough available Suite rooms."
+   }
    ```
 
 ### Changings a reservation
@@ -163,16 +178,16 @@ Instructions: Here you need the `bookingId`and use it in the parapath parameter:
 Request syntax:
    ```json
    {
-  “guests”: 1,
-  “numOfSingleRooms”: 1,
-  “numOfDoubleRooms”: 0,
-  “numOfSuiteRooms”: 0,
-  “checkIn”: “2024-09-13”, //date cannot be after check-in 
-  “checkOut”: “2024-09-19”
+  "guests": 1,
+  "numOfSingleRooms": 1,
+  "numOfDoubleRooms": 0,
+  "numOfSuiteRooms": 0,
+  "checkIn": "2024-09-13", //date cannot be after check-in 
+  "checkOut": "2024-09-19"
   }
    ```
 
-Response if reservation was successful:
+Response if changes were successful:
    ```json
 {
 	"data": {
@@ -191,10 +206,32 @@ Response if reservation was successful:
 		}
 	}
 }
+```
+### Error handling
+
+   **404 Not found** - If bookingId does not exists in bookings table:
+   ```json
+   {
+	"errorMessage": "Booking not found."
+}
    ```
-**404 Not found** Error handling: if bookingId does not exists in bookings table:
+   **400 Bad request** - Too many guests per room: 
+   ```json
+   {
+	"errorMessage": "Number of guests exceeds the available number of beds."
+   }
    ```
-   ÄNDRA
+   **400 Bad request** - Missing fields: 
+   ```json
+   {
+	"errorMessage": "Missing required fields in the request body."
+   }
+   ```
+   **500 Bad request** - Insufficient rooms:
+   ```json
+   {
+	"errorMessage": "Not enough available Suite rooms."
+   }
    ```
 
 ### Delete reservation:
@@ -206,12 +243,27 @@ Instructions: Here you need the `bookingId`and use it in the parapath parameter:
 Response if something is in cart:
    ```json
    {
-  “message”: “Booking successfully deleted!
+  "message": "Booking successfully deleted!"
   }
    ```
 
-Error handling: **404 Not found**
+### Error handling
+
+**400 Bad request** - If todays date is less than two days before check-in
+   ```json
+   {
+	"errorMessage": {
+		"message": "Booking can only be cancelled up to 2 days before check-in date"
+	}
+   }
    ```
-   ÄNDRA
+
+**404 Bad request** - If bookingId is incorrect
+   ```json
+{
+	"errorMessage": {
+		"message": "Booking not found"
+	}
+}
    ```
 
